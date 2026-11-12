@@ -1,0 +1,23 @@
+{
+  "name": "tessera",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Describe a part, list what it has to fit, and get a researched, fit-checked, 3D-printable model (STL, STEP, GLB).",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "serve": "npm run build && python3 -m http.server 8765 --directory dist",
+    "test": "node test/engine.test.mjs",
+    "test:e2e": "npm run build && node test/e2e.test.mjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "replicad": "1.2.1",
+    "replicad-opencascadejs": "1.2.1",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "puppeteer-core": "^23.0.0"
+  }
+}
