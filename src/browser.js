@@ -123,6 +123,7 @@ class Viewer {
       this.lastBox = box;
       if (!this.framed) this.frame(box);
     }
+    if (this.explode) this.setExplode(this.explode);
   }
   placeCamera(dir, box = this.lastBox, aspect = this.camera.aspect) {
     const c = box.getCenter(new THREE.Vector3());
@@ -134,6 +135,27 @@ class Viewer {
     this.camera.lookAt(c);
   }
   frame(box = this.lastBox) { if (!box) return; this.placeCamera(VIEWS.iso, box); this.framed = true; }
+  /** Spread bodies apart for an exploded view: outward from the assembly centre and stacked by height. f = 0 assembled, 1 fully exploded. */
+  setExplode(f) {
+    this.explode = f;
+    if (!this.meshes.length || !this.lastBox) return;
+    const c = this.lastBox.getCenter(new THREE.Vector3()), size = this.lastBox.getSize(new THREE.Vector3());
+    const span = Math.max(size.x, size.y, size.z);
+    const centers = this.meshes.map((m) => m.geometry.boundingBox.getCenter(new THREE.Vector3()));
+    const order = centers.map((v, i) => [v.z, i]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+    this.meshes.forEach((m, i) => {
+      const rank = order.indexOf(i);
+      const d = centers[i].clone().sub(c); d.z = 0;
+      const out = d.length() > 1 ? d.normalize().multiplyScalar(span * 0.18) : new THREE.Vector3();
+      m.position.set(out.x * f, out.y * f, rank * span * 0.14 * f);
+    });
+  }
+  /** Fit the camera to whatever is visible right now (e.g. the exploded layout). */
+  frameVisible() {
+    const box = new THREE.Box3();
+    this.meshes.forEach((m) => { if (m.visible) box.expandByObject(m); });
+    if (!box.isEmpty()) this.placeCamera([0.55, -0.7, 0.48], box);
+  }
   setVisible(name, v) { const m = this.meshes.find((x) => x.name === name); if (m) m.visible = v; }
   setEdges(v) { this.edges = v; this.meshes.forEach((m) => { m.children[0].visible = v; }); }
   /** Render named views to PNG blobs (used for Claude's visual review). */

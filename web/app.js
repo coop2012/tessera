@@ -157,6 +157,7 @@ const activity = {
 const streaming = (label) => ({ onText: ({ text }) => activity.set(`${label} · ${text.length.toLocaleString()} characters`) });
 
 /* ---------- state ---------- */
+let lastSpec = null;
 let viewer, engine, kernelReady = false, current = null, sampleFn = null, canSeeImages = false, mcp = null, webOn = false, busy = null;
 const visibility = {};
 
@@ -221,7 +222,7 @@ function render() {
   const list = (h, a) => (a?.length ? `<div><h3>${h}</h3><ul>${a.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "");
   const link = (u) => /^https?:\/\//.test(u) ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\/(www\.)?/, "").slice(0, 70))}</a>` : esc(u);
   const dir = spec.style?.chosen ? `<div><h3>Design direction</h3><p><b>${esc(spec.style.chosen)}</b>${spec.style.why ? ` ${esc(spec.style.why)}` : ""}</p>${spec.style.alternatives?.length ? `<p class="note">Also considered: ${spec.style.alternatives.map(esc).join(" · ")}</p>` : ""}${spec.style.sources?.length ? `<ul>${spec.style.sources.map((u) => `<li>${link(u)}</li>`).join("")}</ul>` : ""}</div>` : "";
-  $("notes").innerHTML = ((spec.summary ? `<p>${esc(spec.summary)}</p>` : "") + dir + list("Requirements", spec.requirements) + list("Design decisions", spec.design_notes) + list("Printing", spec.print_notes) + list("Hardware to buy", spec.hardware)) || '<p class="note">No notes.</p>';
+  $("notes").innerHTML = ((spec.summary ? `<p>${esc(spec.summary)}</p>` : "") + dir + list("Requirements", spec.requirements) + list("Assembly", spec.assembly_steps) + list("Design decisions", spec.design_notes) + list("Printing", spec.print_notes) + list("Hardware to buy", spec.hardware)) || '<p class="note">No notes.</p>';
   $("code").value = current.code;
 }
 
@@ -345,36 +346,93 @@ Reply with only JSON: ${SPEC_SHAPE}`, { tools: researchTools(), signal, modelTie
   return spec;
 }
 
-async function design(spec, signal, changeRequest) {
-  activity.go("design", changeRequest ? "Revising the model" : "Designing the model");
-  logLine("think", `<b>${changeRequest ? "Revising the model" : "Designing and test-building"}</b>`);
-  const track = { good: null };
-  const prior = changeRequest ? `\nCURRENT MODEL SOURCE:\n${current.code}\n\nCHANGE REQUESTED: ${changeRequest}\nKeep everything else unless the change requires it.` : "";
-  const comps = [
+const META_SHAPE = `{"title": string, "summary": string (2-3 sentences), "design_notes": [string], "print_notes": [string (orientation, supports, layer height, infill per part)], "assembly_steps": [string], "assumptions": [string], "hardware": [string]}`;
+const ROUNDS_RULE = `TOOL BUDGET: you get only about 4 tool rounds. Put the COMPLETE model in your FIRST run_cad call, then use the remaining rounds only to fix what run_cad reports. Do not narrate between calls. The model that gets kept is whatever your LAST SUCCESSFUL run_cad call built, so never end on a failed build — if a fix fails, call run_cad again with the last working version plus a smaller change. Do NOT repeat the code in your final answer.`;
+const CODE_ERRORS = new Set(["empty_completion", "invalid_json", "upstream_error"]);
+
+function specText(spec) {
+  return [
     spec.components?.length ? `COMPONENT DIMENSIONS (researched; "inferred" ones are implied by the brief):\n${JSON.stringify(spec.components, null, 1)}` : "No purchased parts: this is a free-form design. Decide the overall size and break the form into primitives, then build it.",
     spec.requirements?.length ? `REQUIREMENTS:\n- ${spec.requirements.join("\n- ")}` : "",
     spec.style?.chosen ? `CHOSEN STYLE: ${spec.style.chosen}\nWhy: ${spec.style.why || ""}` : "",
+    spec.plan ? `PART PLAN (follow it):\n${JSON.stringify(spec.plan, null, 1)}` : "",
   ].filter(Boolean).join("\n\n");
-  let out;
+}
+
+/** Short planning call without tools: break the job into bodies with sizes, positions and interfaces. */
+async function plan(spec, signal) {
+  activity.set("Planning the parts and how they fit together");
   try {
-    out = await sampleFn.json(`You are an expert mechanical designer and digital sculptor making 3D-printable models with replicad (JavaScript over OpenCascade).
+    const out = await sampleFn.json(`You are planning a 3D-printable design before it is modelled. Do not write code.
 ${briefText()}
 
-${comps}
+${specText(spec)}
+
+Break it into separate bodies. Include every printable part (body, lids, axles/hubs, clips, rollers, clamps…) and every purchased part as a reference body. For each give the overall size in mm, its assembled position (origin at the centre of the footprint on the bed, Z up), and how it interfaces with its neighbours (fits, clearances, fasteners, what holds it). Then list how to verify the design works (e.g. "roll OD 53 mm clears the floor by ≥ 3 mm").
+Reply with only JSON: {"bodies": [{"name": string, "role": "print"|"reference", "size_mm": [x,y,z], "position_mm": [x,y,z], "interfaces": string}], "checks": [string]}`, { signal, modelTier: "default", ...streaming("Planning the parts") });
+    if (Array.isArray(out?.bodies) && out.bodies.length) {
+      logLine("ok", `Plan: ${out.bodies.length} bodies — ${esc(out.bodies.map((b) => b.name).join(", ").slice(0, 160))}`);
+      return out;
+    }
+  } catch (e) { if (e?.code === "cancelled") throw e; }
+  logLine("dot", "Skipped the separate plan; designing directly.");
+  return null;
+}
+
+/** Fallback when the tool loop produced nothing that built: ask for code only, then repair from build errors (max 2). */
+async function writeCodeDirectly(spec, signal, prior) {
+  logLine("think", "<b>Writing the model directly</b>");
+  const ask = (extra) => sampleFn(`Write the complete replicad model for this design. Reply with ONLY the JavaScript in one \`\`\`js code block, nothing else.
+${briefText()}
+
+${specText(spec)}
+${prior}
+
+${API}
+
+${CRAFT}
+${extra}`, { signal, modelTier: "complex", cache: false, ...streaming("Writing the model") });
+  const code = (t) => (t.match(/```(?:js|javascript)?\s*\n([\s\S]*?)```/) || [null, t])[1].trim();
+  let src = code((await ask("")).text);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    activity.set(`Building in the CAD kernel · attempt ${attempt}`);
+    try { await build(src, null, { keepView: attempt > 1 }); logLine("cube", `Built on attempt ${attempt}`); return src; }
+    catch (e) {
+      logLine("cube", `Build error: ${esc(errText(e).slice(0, 140))}`, "err");
+      if (attempt === 3) throw new Error("The model still fails to build after two repairs: " + errText(e));
+      activity.set(`Attempt ${attempt} failed · Claude is fixing it`);
+      src = code((await ask(`\nTHE PREVIOUS VERSION FAILED WITH: ${errText(e).slice(0, 500)}\nPREVIOUS VERSION:\n${src}\nFix it. Simplify the failing operation if needed.`)).text);
+    }
+  }
+}
+
+async function design(spec, signal, changeRequest) {
+  activity.go("design", changeRequest ? "Revising the model" : "Designing the model");
+  logLine("think", `<b>${changeRequest ? "Revising the model" : "Designing and test-building"}</b>`);
+  if (!changeRequest && !spec.plan) spec.plan = await plan(spec, signal);
+  const track = { good: null };
+  const prior = changeRequest ? `\nCURRENT MODEL SOURCE (builds cleanly):\n${current.code}\n\nCHANGE REQUESTED: ${changeRequest}\nKeep everything else unless the change requires it.` : "";
+  let meta = {};
+  try {
+    meta = await sampleFn.json(`You are an expert mechanical designer and digital sculptor making 3D-printable models with replicad (JavaScript over OpenCascade).
+${briefText()}
+
+${specText(spec)}
 ${prior}
 
 ${API}
 
 ${CRAFT}
 
-Process: write the model, call run_cad, read the sizes/overlaps, fix and call again until it builds cleanly and matches the brief. Prefer one strong complete model over many small attempts.
+${ROUNDS_RULE}
 
-Reply with only JSON: ${RESULT_SHAPE}`, { tools: [cadTool(track)], signal, modelTier: "complex", ...streaming("Writing the model") });
+When the last run_cad succeeded, reply with only JSON (no code): ${META_SHAPE}`, { tools: [cadTool(track)], signal, modelTier: "complex", ...streaming("Writing up the design") });
   } catch (e) {
-    if (e?.code === "invalid_json" && track.good) { logLine("warn", "The designer's write-up was unreadable; keeping the last model that built."); out = { code: track.good }; }
-    else throw e;
+    if (e?.code === "cancelled" || !CODE_ERRORS.has(e?.code)) throw e;
+    logLine("warn", track.good ? "Claude ran out of turns before its write-up; keeping the last model that built." : "Claude ran out of turns before a model built; switching to direct mode.");
   }
-  return finalize(out, track, spec);
+  if (!track.good) track.good = await writeCodeDirectly(spec, signal, prior);
+  return finalize({ ...meta, code: track.good }, track, spec);
 }
 
 async function finalize(out, track, spec) {
@@ -384,16 +442,9 @@ async function finalize(out, track, spec) {
     hardware: out.hardware?.length ? out.hardware : spec.hardware,
   };
   delete merged.code; delete merged.cadquery;
-  if (out.cadquery) current = { ...(current || {}), cadquery: out.cadquery };
-  try {
-    await build(out.code || track.good, merged, { keepView: true });
-    return out.code || track.good;
-  } catch (e) {
-    if (!track.good || track.good === out.code) throw e;
-    logLine("warn", `Final code failed (${esc(errText(e).slice(0, 100))}); using the last version that built.`);
-    await build(track.good, merged, { keepView: true });
-    return track.good;
-  }
+  current = { ...(current || {}), cadquery: null };
+  await build(track.good, merged, { keepView: true });
+  return track.good;
 }
 
 async function visualReview(signal, focus) {
@@ -402,7 +453,7 @@ async function visualReview(signal, focus) {
   activity.set("Rendering 5 views of the model");
   logLine("eye", "<b>Reviewing renders</b> from 5 angles");
   const images = await viewer.views(["iso", "back", "front", "side", "top"]);
-  const track = { good: current.code };
+  const track = { good: null };
   let out;
   try {
     out = await sampleFn.json(`You are reviewing a 3D-printable model against its brief. The 5 attached images are renders of the current model: 1 isometric from front-right, 2 isometric from back-left, 3 front (from -Y, slightly above), 4 right side (from +X, slightly above), 5 top-down. Z is up. Purchased parts appear translucent.
@@ -417,18 +468,23 @@ ${API}
 
 ${CRAFT}
 
+${ROUNDS_RULE}
+
 Look hard at the renders. List what is wrong or missing: proportions, missing recognisable features, crude or blocky areas that should be rounded, floating or disconnected pieces, parts sunk below z=0, fit problems, unprintable overhangs or thin bits. Then improve the model: refine shapes, add detail, fix every problem. Verify with run_cad (it must still build). Keep what already works.
 
-Reply with only JSON: {"issues_found": [string], "code": string, "design_notes": [string], "print_notes": [string], "summary": string}`,
+Reply with only JSON (no code): {"issues_found": [string], "design_notes": [string], "print_notes": [string], "summary": string}`,
       { tools: [cadTool(track)], images, signal, modelTier: "complex", ...streaming("Writing the improvements") });
   } catch (e) {
-    if (e?.code === "invalid_json" && track.good) out = { code: track.good }; else throw e;
+    if (e?.code === "cancelled" || !CODE_ERRORS.has(e?.code)) throw e;
+    out = {};
+    logLine("warn", track.good ? "Review ran out of turns before its write-up; keeping its last improvement that built." : "The review didn't finish; keeping the current model.");
   }
   (out.issues_found || []).slice(0, 6).forEach((t) => logLine("dot", esc(t)));
+  if (!track.good) { await build(current.code, current.spec, { keepView: true }); return; }
   const spec = { ...current.spec, ...(out.summary ? { summary: out.summary } : {}),
     design_notes: out.design_notes?.length ? out.design_notes : current.spec.design_notes,
     print_notes: out.print_notes?.length ? out.print_notes : current.spec.print_notes };
-  await finalize({ ...spec, code: out.code }, track, spec);
+  await finalize({ ...spec }, track, spec);
 }
 
 /* ---------- run orchestration ---------- */
@@ -439,10 +495,11 @@ async function runDesigner(kind, text) {
   setBusy(true);
   $("log").innerHTML = "";
   const t0 = Date.now();
-  activity.start(kind === "new" ? ["research", "design", ...($("review").checked ? ["review"] : [])] : kind === "revise" ? ["design"] : ["review"]);
+  activity.start(kind === "retry" ? ["design", ...($("review").checked ? ["review"] : [])] : kind === "new" ? ["research", "design", ...($("review").checked ? ["review"] : [])] : kind === "revise" ? ["design"] : ["review"]);
   try {
-    if (kind === "new") {
-      const spec = await research(ctl.signal);
+    if (kind === "new" || kind === "retry") {
+      const spec = (kind === "retry" && lastSpec) ? lastSpec : await research(ctl.signal);
+      lastSpec = spec;
       await design(spec, ctl.signal);
       if ($("review").checked) await visualReview(ctl.signal);
     } else if (kind === "revise") {
@@ -459,7 +516,13 @@ async function runDesigner(kind, text) {
     else if (code === "not_granted" || code === "sampling_disabled") { logLine("bad", "Claude access was declined for this page, so the designer is off. Editing and running the source still works.", "err"); chip("chipClaude", "err", "Designer: not allowed"); }
     else if (code === "rate_limited") logLine("bad", "Usage limit reached. Wait a while, then try again.", "err");
     else if (code === "refused") logLine("bad", "Claude declined this brief. Change what it asks for and try again.", "err");
+    else if (code === "empty_completion") logLine("bad", "Claude used up its turns without an answer.", "err");
+    else if (code === "prompt_too_large") logLine("bad", "The brief plus research is too long for one request. Shorten the brief.", "err");
     else logLine("bad", esc(errText(e)), "err");
+    if (lastSpec && kind !== "revise" && code !== "cancelled") {
+      const li = logLine("dot", `<button class="btn small" type="button" id="retryBtn">Retry the design</button> <span class="note">keeps the research</span>`);
+      li.querySelector("button").addEventListener("click", () => runDesigner("retry"));
+    }
   } finally { busy = null; setBusy(false); activity.stop(); }
 }
 function setBusy(on) {
@@ -495,6 +558,24 @@ $("copyBtn").addEventListener("click", async () => {
 });
 $("edgesBtn").addEventListener("click", () => { const on = $("edgesBtn").getAttribute("aria-pressed") !== "true"; $("edgesBtn").setAttribute("aria-pressed", on); viewer.setEdges(on); });
 $("frameBtn").addEventListener("click", () => viewer.frame());
+$("explodeBtn").addEventListener("click", () => {
+  const on = $("explodeBtn").getAttribute("aria-pressed") !== "true";
+  $("explodeBtn").setAttribute("aria-pressed", on);
+  const from = viewer.explode || 0, to = on ? 1 : 0, t0 = performance.now();
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const step = (t) => { const k = reduce ? 1 : Math.min(1, (t - t0) / 450); viewer.setExplode(from + (to - from) * (1 - (1 - k) ** 3)); if (k < 1) requestAnimationFrame(step); else viewer.frameVisible(); };
+  requestAnimationFrame(step);
+});
+$("cqBtn").addEventListener("click", async () => {
+  if (!sampleFn || !current?.code) { toast("Needs Claude and a built model."); return; }
+  $("cqBtn").disabled = true; $("cqBtn").classList.add("loading"); $("runNote").textContent = "Claude is writing the CadQuery port…";
+  try {
+    const { text } = await sampleFn(`Translate this replicad (OpenCascade JS) model into an equivalent CadQuery Python script. Same bodies, same dimensions and positions. Export each printable body to <name>.stl and the whole assembly to assembly.step. Reply with only the Python in one \`\`\`python block.\n\n${current.code}`, { modelTier: "default" });
+    current.cadquery = (text.match(/```(?:python|py)?\s*\n([\s\S]*?)```/) || [null, text])[1].trim();
+    $("runNote").textContent = "CadQuery port ready; it's in your next export (not test-run).";
+  } catch (e) { $("runNote").textContent = e?.code === "not_granted" ? "Claude access was declined." : "Couldn't make the port: " + errText(e); }
+  finally { $("cqBtn").disabled = false; $("cqBtn").classList.remove("loading"); }
+});
 ["bedX", "bedY", "bedZ", "material"].forEach((id) => $(id).addEventListener("change", () => current && render()));
 document.querySelectorAll("[data-ex]").forEach((b) => b.addEventListener("click", () => loadExample(b.dataset.ex)));
 
