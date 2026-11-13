@@ -43,10 +43,10 @@ function main(r, p) {
   const encoder = r.makeBox([enc[0] - 6, enc[1] - 6, lidZ - 6.5], [enc[0] + 6, enc[1] + 6, lidZ])
     .fuse(r.makeCylinder(3.5, 7, [enc[0], enc[1], lidZ])).fuse(r.makeCylinder(3, 20, [enc[0], enc[1], lidZ]));
   return [
-    { name: "lcd_1602", shape: lcd, color: "#3b7a2a", printable: false },
-    { name: "ec11_encoder", shape: encoder, color: "#888888", printable: false },
+    { name: "lcd_1602", shape: lcd, color: "#6a6a68", printable: false },
+    { name: "ec11_encoder", shape: encoder, color: "#8a8a8a", printable: false },
     { name: "box", shape: box },
-    { name: "lid", shape: lid, color: "#29335c" },
-    { name: "arduino_uno", shape: r.makeBox([uno.x0, uno.y0, uno.z], [uno.x0 + uno.w, uno.y0 + uno.d, uno.z + uno.t]), color: "#1f6fb2", printable: false },
+    { name: "lid", shape: lid, color: "#d6d6d4" },
+    { name: "arduino_uno", shape: r.makeBox([uno.x0, uno.y0, uno.z], [uno.x0 + uno.w, uno.y0 + uno.d, uno.z + uno.t]), color: "#7d7d7b", printable: false },
   ];
 }

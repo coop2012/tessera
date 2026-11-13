@@ -88,7 +88,11 @@ class Viewer {
     Object.assign(this.renderer.domElement.style, { width: "100%", height: "100%" });
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
-  setTheme(dark) { this.gridColor = dark ? 0x353c45 : 0xcfd5dc; this.grid?.material.color.setHex(this.gridColor); }
+  setTheme(dark) {
+    this.gridColor = dark ? 0x2a2a2a : 0xdddddb; this.grid?.material.color.setHex(this.gridColor);
+    this.edgeColor = dark ? 0xe8e8e8 : 0x111111;
+    this.meshes?.forEach((m) => m.children[0]?.material.color.setHex(this.edgeColor));
+  }
   show(meshes, visibility = {}) {
     for (const c of [...this.group.children]) { c.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); }); this.group.remove(c); }
     const box = new THREE.Box3();
@@ -106,7 +110,7 @@ class Viewer {
       const mesh = new THREE.Mesh(geo, mat);
       mesh.name = m.name;
       const edgeGeo = new THREE.EdgesGeometry(mergeVertices(geo.clone().deleteAttribute("normal")), 28);
-      const lines = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.3 }));
+      const lines = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: this.edgeColor ?? 0x111111, transparent: true, opacity: 0.28 }));
       lines.visible = this.edges;
       mesh.add(lines);
       mesh.visible = visibility[m.name] !== false;
@@ -159,7 +163,12 @@ class Viewer {
   setVisible(name, v) { const m = this.meshes.find((x) => x.name === name); if (m) m.visible = v; }
   setEdges(v) { this.edges = v; this.meshes.forEach((m) => { m.children[0].visible = v; }); }
   /** Render named views to PNG blobs (used for Claude's visual review). */
-  async views(names = ["iso", "back", "front", "side", "top"], px = 640) {
+  /** One isometric render as a data URL, for library cards. */
+  async thumb(px = 360, type = "image/webp") {
+    const [blob] = await this.views(["iso"], px, type);
+    return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+  }
+  async views(names = ["iso", "back", "front", "side", "top"], px = 640, type = "image/png") {
     if (!this.lastBox) return [];
     const saved = { pos: this.camera.position.clone(), target: this.controls.target.clone(), aspect: this.camera.aspect, near: this.camera.near, far: this.camera.far };
     const size = this.renderer.getSize(new THREE.Vector2()), ratio = this.renderer.getPixelRatio();
@@ -170,7 +179,7 @@ class Viewer {
     for (const n of names) {
       this.placeCamera(VIEWS[n], this.lastBox, 1);
       this.renderer.render(this.scene, this.camera);
-      out.push(await new Promise((res) => this.renderer.domElement.toBlob(res, "image/png")));
+      out.push(await new Promise((res) => this.renderer.domElement.toBlob(res, type, 0.86)));
     }
     this.setEdges(edges);
     this.renderer.setPixelRatio(ratio); this.renderer.setSize(size.x, size.y, false);

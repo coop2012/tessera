@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "thumbs": "node scripts/build.mjs && node scripts/thumbs.mjs && node scripts/build.mjs",
     "serve": "npm run build && python3 -m http.server 8765 --directory dist",
     "test": "node test/engine.test.mjs",
     "test:e2e": "npm run build && node test/e2e.test.mjs && node test/e2e-recovery.test.mjs"

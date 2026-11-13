@@ -7,7 +7,7 @@ await new Promise((r) => setTimeout(r, 800));
 process.on("exit", () => server.kill());
 import puppeteer from 'puppeteer-core';
 import fs from 'fs';
-const v1 = fs.readFileSync('test/models/cable_v1.js','utf8'), v2 = fs.readFileSync('test/models/cable_v2.js','utf8');
+const v1 = fs.readFileSync('library/cable_organizer.js','utf8'), v2 = fs.readFileSync('library/cable_organizer.js','utf8');
 const b = await puppeteer.launch({executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', args:['--no-sandbox','--use-gl=swiftshader','--enable-unsafe-swiftshader']});
 const p = await b.newPage(); await p.setViewport({width:1360,height:960});
 const errs=[]; p.on('pageerror',e=>errs.push('pageerror '+e.message)); p.on('console',m=>{ if(m.type()==='error' && !/Failed to load resource/.test(m.text())) errs.push(m.text()); if(m.text().startsWith('[mock]')) console.log(m.text()); });
@@ -27,6 +27,7 @@ await p.evaluateOnNewDocument((v1, v2) => {
   sample.json = async (input, opts) => {
     const tool = (n) => opts.tools.find((t) => t.name === n);
     if (input.includes("research step")) {
+      log("research prompt lists the library:", input.includes("cable_organizer: 5-slot cable organizer"));
       log('research prompt asks for implied items:', input.includes('IMPLIED ITEMS'), '| style survey:', input.includes('printables.com'));
       await think(opts, 3000);
       await tool("web_search").execute({ query: "USB-C cable outer diameter mm" }, {});
@@ -36,7 +37,7 @@ await p.evaluateOnNewDocument((v1, v2) => {
       return spec;
     }
     if (input.includes("expert mechanical designer")) {
-      log('design prompt has requirements:', input.includes('REQUIREMENTS:'), '| style:', input.includes('CHOSEN STYLE'));
+      log('design prompt has requirements:', input.includes('REQUIREMENTS:'), '| style:', input.includes('CHOSEN STYLE'), '| reference models:', (input.match(/### .*?\((\w+)\)/g) || []).join(' '));
       await think(opts, 3000);
       await tool("run_cad").execute({ code: v1 }, {});
       await stream(opts, '{"code":"..."}');
@@ -65,6 +66,10 @@ console.log('after:', JSON.stringify(await snap()), 'activity hidden soon');
 await new Promise(r=>setTimeout(r,1500));
 console.log('panel hidden:', await p.$eval('#activity', e=>e.hidden));
 console.log('--- log ---\n'+await p.$eval('#log', e=>e.innerText));
+await p.click('#saveBtn'); await p.waitForFunction(()=>document.getElementById('saveLabel').textContent==='Saved',{timeout:20000});
+await p.evaluate(()=>location.hash='#library'); await new Promise(r=>setTimeout(r,600));
+console.log('library shows saved design:', await p.$eval('#mineCards', e=>e.innerText.includes('5-slot desk cable organizer')), '| has thumbnail:', await p.$eval('#mineCards', e=>!!e.querySelector('img[src^="data:image"]')));
+await p.evaluate(()=>location.hash='#studio');
 await p.click('[data-tab="notes"]'); await p.screenshot({path:'test/out-result.png'});
 console.log('errors:', errs); await b.close();
 process.exitCode = errs.length ? 1 : 0;

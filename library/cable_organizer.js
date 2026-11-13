@@ -21,5 +21,5 @@ function main(r, p) {
   for (const sx of [-1, 1]) for (const sy of [-1, 1]) block = block.cut(r.makeCylinder(5.2, 1.2, [sx * (L / 2 - 9), sy * (Dp / 2 - 8), -0.01]));
   for (const sx of [-1, 1]) block = block.cut(r.makeCylinder(10.3, 4, [sx * 22, 0, -0.01]));
   try { block = block.chamfer(0.6, (e) => e.inPlane("XY", 0)); } catch (e) {}
-  return [{ name: "cable_block", shape: block, color: "#3d9970" }];
+  return [{ name: "cable_block", shape: block, color: "#2a2a2a" }];
 }

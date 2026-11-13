@@ -19,4 +19,11 @@ fs.writeFileSync("dist/occt-gz.wasm", zlib.gzipSync(wasm, { level: 9 }));
 const page = fs.readFileSync("web/index.html", "utf8");
 fs.writeFileSync("dist/index.html", `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>\n${page}\n</body></html>\n`);
 fs.copyFileSync("web/app.js", "dist/app.js");
+
+// Reference library: catalog + verified model code -> dist/library.js, thumbnails -> dist/thumbs/
+const catalog = JSON.parse(fs.readFileSync("library/catalog.json", "utf8"));
+const lib = catalog.map((t) => ({ ...t, code: fs.readFileSync(`library/${t.id}.js`, "utf8").trim() }));
+fs.writeFileSync("dist/library.js", `// Generated from library/ by scripts/build.mjs\nexport const LIBRARY = ${JSON.stringify(lib, null, 1)};\n`);
+fs.mkdirSync("dist/thumbs", { recursive: true });
+if (fs.existsSync("library/thumbs")) for (const f of fs.readdirSync("library/thumbs")) fs.copyFileSync(`library/thumbs/${f}`, `dist/thumbs/${f}`);
 console.log("dist/ ready:", fs.readdirSync("dist").map((f) => `${f} ${(fs.statSync(`dist/${f}`).size / 1024).toFixed(0)} KB`).join(", "));

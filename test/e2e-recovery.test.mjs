@@ -7,7 +7,7 @@ import fs from "node:fs";
 import puppeteer from "puppeteer-core";
 const server = spawn("python3", ["-m", "http.server", "8766", "--directory", "dist"], { stdio: "ignore" });
 await new Promise((r) => setTimeout(r, 800));
-const tape = fs.readFileSync("test/models/tape_dispenser.js", "utf8");
+const tape = fs.readFileSync("library/tape_dispenser.js", "utf8");
 const b = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome", args: ["--no-sandbox", "--use-gl=swiftshader", "--enable-unsafe-swiftshader"] });
 const p = await b.newPage(); await p.setViewport({ width: 1360, height: 960 });
 const errs = []; p.on("pageerror", (e) => errs.push(e.message)); p.on("console", (m) => { if (m.text().startsWith("[mock]")) console.log(m.text()); });

@@ -19,7 +19,7 @@ export function initEngine(wasmBinary) {
   return ready;
 }
 
-const PALETTE = ["#e4572e", "#29335c", "#f3a712", "#669bbc", "#a8c686", "#8e6c8a", "#3d9970", "#c97b63"];
+const PALETTE = ["#2a2a2a", "#c8c8c6", "#77777a", "#e8e8e6", "#4d4d4f", "#a5a5a3"];
 
 function normalize(out) {
   if (!out) throw new Error("main() returned nothing. Return a shape or an array of {name, shape, color, printable}.");

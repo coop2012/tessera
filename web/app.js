@@ -1,84 +1,10 @@
 /* Tessera page logic. Geometry runs in cad-worker.js; Claude runs through the `sample` capability. */
 
 /* ---------- examples (pre-built so the page opens in a working state) ---------- */
-const EXAMPLES = {
-  pi: {
-    instructions: "A two-piece case for a Raspberry Pi 4 with a 30 mm fan on the lid. Leave the USB and Ethernet end open, raise the board on its mounting holes, and add vent slots under the CPU.",
-    parts: "Raspberry Pi 4 Model B\n30x30x10 mm 5V fan\n4x M2.5 x 6 screws",
-    spec: {
-      title: "Raspberry Pi 4 case (example)",
-      components: [
-        { name: "Raspberry Pi 4 Model B", dims: "PCB 85 × 56 × 1.4 mm; holes Ø2.7 mm on 58 × 49 mm, 3.5 mm from edge", source: "", basis: "Raspberry Pi mechanical drawing" },
-        { name: "30 mm fan", dims: "30 × 30 × 10 mm; screw holes 24 mm apart", source: "", basis: "Common 3010 fan standard" },
-        { name: "M2.5 × 6 screw", dims: "Pilot hole Ø2.2 mm for self-tapping in plastic", source: "", basis: "ISO 7380 / printing practice" },
-      ],
-      assumptions: ["Example: only the USB/Ethernet end is cut open; the side ports are left for the designer to add."],
-      print_notes: ["Base upright, lid upside down; no supports.", "0.2 mm layers, 3 walls, 20% gyroid."],
-      design_notes: ["0.6 mm clearance around the PCB.", "4 mm standoffs so parts under the board clear the floor."],
-      hardware: ["4 × M2.5 × 6 self-tapping screws", "1 × 30 mm 5 V fan"],
-    },
-    code: `function main(r, p) {
-  // Raspberry Pi 4: 85 x 56 x 1.4 mm PCB, M2.5 holes on a 58 x 49 mm pattern, 3.5 mm in from the corner
-  const pcb = { w: 85, d: 56, t: 1.4 };
-  const wall = p.wall ?? 2, gap = 0.6, floor = 2, standoff = 4, inner = 22;
-  const W = pcb.w + 2 * gap + 2 * wall, D = pcb.d + 2 * gap + 2 * wall, H = floor + inner;
-
-  let base = r.drawRoundedRectangle(W, D, 3).sketchOnPlane("XY").extrude(H);
-  base = base.shell(wall, (f) => f.inPlane("XY", H));
-  const ox = -pcb.w / 2 + 3.5, oy = -pcb.d / 2 + 3.5;
-  for (const [x, y] of [[0, 0], [58, 0], [0, 49], [58, 49]]) {
-    base = base.fuse(r.makeCylinder(3, standoff, [ox + x, oy + y, floor]).cut(r.makeCylinder(1.1, standoff, [ox + x, oy + y, floor])));
-  }
-  base = base.cut(r.makeBaseBox(10, 50, 16).translate([W / 2, 0, floor + standoff + pcb.t]));
-  for (let i = -3; i <= 3; i++) base = base.cut(r.makeBaseBox(2, 24, floor + 1).translate([-10 + i * 4, 0, -0.5]));
-
-  let lid = r.drawRoundedRectangle(W, D, 3).sketchOnPlane("XY", H + 4).extrude(2);
-  const lip = r.drawRoundedRectangle(W - 2 * wall - 0.4, D - 2 * wall - 0.4, 1.5)
-    .cut(r.drawRoundedRectangle(W - 2 * wall - 3.6, D - 2 * wall - 3.6, 1))
-    .sketchOnPlane("XY", H + 1).extrude(3);
-  lid = lid.fuse(lip).cut(r.makeCylinder(14, 10, [-8, 0, H]));
-  for (const [x, y] of [[-12, -12], [12, -12], [-12, 12], [12, 12]]) lid = lid.cut(r.makeCylinder(1.6, 10, [-8 + x, y, H]));
-
-  const board = r.makeBaseBox(pcb.w, pcb.d, pcb.t).translate([0, 0, floor + standoff]);
-  return [
-    { name: "case_base", shape: base },
-    { name: "case_lid", shape: lid, color: "#29335c" },
-    { name: "pi4_board", shape: board, color: "#2e7d32", printable: false },
-  ];
-}`,
-  },
-  owl: {
-    instructions: "A small desk owl figurine about 65 mm tall: round body, big eyes, ear tufts, folded wings, sitting on a turned round base. Prints in one piece without supports.",
-    parts: "",
-    spec: {
-      title: "Desk owl (example)",
-      components: [],
-      assumptions: ["Example: an original figurine built from ellipsoids, a revolved base and a lofted crest."],
-      design_notes: ["Body and head are overlapping ellipsoids, so they fuse into one smooth solid.", "Flat 6 mm base keeps it stable and gives a clean first layer."],
-      print_notes: ["Print upright on the base.", "Supports off; the eye sockets and beak stay under 45°.", "0.12–0.16 mm layers for the curves."],
-      hardware: [],
-    },
-    code: `function main(r, p) {
-  // Original owl: ellipsoid body + head, tufts, wings, eyes, beak, revolved base
-  const body = r.makeEllipsoid(18, 15, 22).translate([0, 0, 24]);
-  const head = r.makeEllipsoid(15, 13, 12).translate([0, 0, 50]);
-  let owl = body.fuse(head);
-  for (const s of [-1, 1]) {
-    owl = owl.fuse(r.makeEllipsoid(5, 3, 6).rotate(s * 25, [0, 0, 0], [0, 1, 0]).translate([s * 8, -4, 60])); // ear tufts
-    owl = owl.cut(r.makeSphere(4).translate([s * 6, -12, 52]));                                            // eye sockets
-    owl = owl.fuse(r.makeSphere(2.6).translate([s * 6, -10.5, 52]));                                       // pupils
-    owl = owl.fuse(r.makeEllipsoid(4, 10, 16).rotate(s * 12, [0, 0, 0], [0, 1, 0]).translate([s * 16, 0, 26])); // wings
-  }
-  owl = owl.fuse(r.drawEllipse(3, 2.4).sketchOnPlane("XZ", 10).loftWith([r.drawCircle(0.5).sketchOnPlane("XZ", 15.5)])
-    .rotate(-12, [0, 0, 0], [1, 0, 0]).translate([0, 0, 46]));                                            // lofted beak
-  owl = owl.cut(r.makeBaseBox(80, 80, 10).translate([0, 0, -8]));                                        // flat bottom
-  const base = r.draw([0, 0]).lineTo([22, 0]).lineTo([22, 3]).smoothSplineTo([18, 6]).lineTo([0, 6]).close()
-    .sketchOnPlane("XZ").revolve([0, 0, 1]);
-  owl = owl.fuse(base);
-  return [{ name: "desk_owl", shape: owl, color: "#c9803e" }];
-}`,
-  },
-};
+import { LIBRARY } from "./library.js";
+const TEMPLATE = (id) => LIBRARY.find((t) => t.id === id);
+const specOf = (t) => ({ title: t.title, summary: t.brief, components: t.components || [], design_notes: t.techniques || [],
+  print_notes: t.print_notes || [], hardware: t.hardware || [], assumptions: [], template: t.id });
 
 /* ---------- helpers ---------- */
 const $ = (id) => document.getElementById(id);
@@ -175,6 +101,8 @@ async function build(code, spec, { keepView = false } = {}) {
   viewer.show(res.meshes, visibility);
   render();
   $("exportBtn").disabled = false;
+  $("saveBtn").disabled = false;
+  $("saveLabel").textContent = current.docId ? "Save changes" : "Save to library";
   return res;
 }
 function bedChecks(res) {
@@ -318,10 +246,30 @@ function cadTool(track) {
   };
 }
 
+const LIB_INDEX = LIBRARY.map((t) => `${t.id}: ${t.title} (${t.category}) — ${t.tags.slice(0, 7).join(", ")}`).join("\n");
+/** Keyword fallback when Claude didn't pick references: score templates by tag hits in the brief. */
+function guessRefs(text) {
+  const q = ` ${text.toLowerCase()} `;
+  const has = (tag) => new RegExp(`(^|[^a-z])${tag.replace(/[^a-z0-9 ]/g, "")}s?([^a-z]|$)`).test(q);
+  return LIBRARY.map((t) => [t.tags.reduce((n, tag) => n + (has(tag) ? (tag.length > 4 ? 2 : 1) : 0), 0), t.id])
+    .filter(([n]) => n > 0).sort((a, b) => b[0] - a[0]).slice(0, 2).map(([, id]) => id);
+}
+function refIds(spec) {
+  const picked = (spec?.references || []).filter((id) => TEMPLATE(id));
+  return (picked.length ? picked : guessRefs(`${$("instructions").value} ${$("parts").value}`)).slice(0, 2);
+}
+function refText(spec) {
+  const ids = refIds(spec);
+  if (!ids.length) return "";
+  return `REFERENCE MODELS — verified designs from the Tessera library that build cleanly in this exact kernel. Reuse their construction techniques and code patterns; do not copy their dimensions unless they suit this brief.\n` +
+    ids.map((id) => { const t = TEMPLATE(id); return `### ${t.title} (${t.id})\nTechniques: ${t.techniques.join("; ")}\n\`\`\`js\n${t.code}\n\`\`\``; }).join("\n\n");
+}
+
 const SPEC_SHAPE = `{"title": string,
  "components": [{"name": string, "dims": string (every number in mm the model needs), "source": string (URL you read, or ""), "basis": string (document, standard or typical-value source), "inferred": boolean (true if the user did not list it but the brief implies it)}],
  "requirements": [string] (concrete design requirements you inferred from the brief, with numbers: counts, sizes, clearances, mounting),
  "style": {"chosen": string (the design style/approach you picked, one sentence), "why": string, "alternatives": [string], "sources": [string (URLs that informed it)]},
+ "references": [string] (up to 2 ids from the reference library that share construction techniques with this design),
  "assumptions": [string], "hardware": [string]}`;
 const RESULT_SHAPE = `{"title": string, "summary": string (2-3 sentences), "code": string (the final source that built cleanly), "cadquery": string (equivalent CadQuery Python script exporting each printable body to STL and the assembly to STEP), "design_notes": [string], "print_notes": [string (orientation, supports, layer height, infill)], "assumptions": [string], "hardware": [string]}`;
 
@@ -334,6 +282,8 @@ async function research(signal) {
 2. IMPLIED ITEMS: work out what the object must hold, fit or interface with even if not listed, and find REAL typical dimensions for them. Examples: "5-slot cable organizer" → typical diameters of USB-C, Lightning, micro-USB, laptop and HDMI cables, and connector head sizes so the head can't pull through; "phone stand" → common phone widths/thicknesses with cases and camera bump; "headphone hook" → headband widths; "desk clip" → common desk thicknesses; "spice rack" → standard jar diameters. Prefer measured/published numbers over guesses, and design for the common range.
 3. STYLE: find how this kind of object is usually designed (e.g. popular 3D-print models, retail products) — the main styles and the design choices people like (mounting method, open vs enclosed, snap-fit vs screws, aesthetic). Pick the style that best fits the brief and explain why; list the strongest alternatives.
 4. REQUIREMENTS: write concrete, numbered requirements with values (counts, sizes, clearances, wall thicknesses, mounting).
+5. REFERENCES: from this library of verified models, pick up to 2 whose construction techniques the designer should reuse (e.g. snap-fits, hinges, gears, enclosures with standoffs, lathed or sculpted forms):
+${LIB_INDEX}
 ${webOn ? "Use web_search and read_page: search for datasheets/measurements AND for popular designs of this object (e.g. on printables.com, makerworld.com, product pages). Read at most 5 pages; keep queries specific." : "Live lookup is off: use well-established published specs and typical measured values, and say so in basis."}
 Never ask the user questions: decide, and record each decision as an assumption.
 
@@ -343,6 +293,8 @@ Reply with only JSON: ${SPEC_SHAPE}`, { tools: researchTools(), signal, modelTie
   if (!spec || !Array.isArray(spec.components)) throw new Error("The research step returned an unreadable spec.");
   const inferred = spec.components.filter((c) => c.inferred).length;
   logLine("ok", `Spec ready: ${spec.components.length} component(s)${inferred ? `, ${inferred} inferred` : ""}${spec.style?.chosen ? ` · style: ${esc(spec.style.chosen.slice(0, 80))}` : ""}`);
+  const refs = refIds(spec);
+  if (refs.length) logLine("dot", `Studying references: ${refs.map((id) => `<b>${esc(TEMPLATE(id).title)}</b>`).join(", ")}`);
   return spec;
 }
 
@@ -356,6 +308,7 @@ function specText(spec) {
     spec.requirements?.length ? `REQUIREMENTS:\n- ${spec.requirements.join("\n- ")}` : "",
     spec.style?.chosen ? `CHOSEN STYLE: ${spec.style.chosen}\nWhy: ${spec.style.why || ""}` : "",
     spec.plan ? `PART PLAN (follow it):\n${JSON.stringify(spec.plan, null, 1)}` : "",
+    refText(spec),
   ].filter(Boolean).join("\n\n");
 }
 
@@ -468,6 +421,8 @@ ${API}
 
 ${CRAFT}
 
+${refText(current.spec)}
+
 ${ROUNDS_RULE}
 
 Look hard at the renders. List what is wrong or missing: proportions, missing recognisable features, crude or blocky areas that should be rounded, floating or disconnected pieces, parts sunk below z=0, fit problems, unprintable overhangs or thin bits. Then improve the model: refine shapes, add detail, fix every problem. Verify with run_cad (it must still build). Keep what already works.
@@ -509,7 +464,7 @@ async function runDesigner(kind, text) {
     }
     viewer.frame();
     logLine("ok", `<b>Done</b> in ${Math.round((Date.now() - t0) / 1000)} s.`);
-    store.set({ instructions: $("instructions").value, parts: $("parts").value, spec: current.spec, code: current.code, cadquery: current.cadquery });
+    rememberDraft();
   } catch (e) {
     const code = e?.code;
     if (code === "cancelled") logLine("dot", "Stopped.");
@@ -577,15 +532,6 @@ $("cqBtn").addEventListener("click", async () => {
   finally { $("cqBtn").disabled = false; $("cqBtn").classList.remove("loading"); }
 });
 ["bedX", "bedY", "bedZ", "material"].forEach((id) => $(id).addEventListener("change", () => current && render()));
-document.querySelectorAll("[data-ex]").forEach((b) => b.addEventListener("click", () => loadExample(b.dataset.ex)));
-
-async function loadExample(key) {
-  const ex = EXAMPLES[key];
-  $("instructions").value = ex.instructions; $("parts").value = ex.parts;
-  if (!kernelReady) return;
-  current = { cadquery: null };
-  try { await build(ex.code, ex.spec); } catch (e) { toast("Example failed to build: " + errText(e)); }
-}
 
 $("exportBtn").addEventListener("click", async () => {
   const downloads = await window.claude?.use?.("downloads");
@@ -606,8 +552,9 @@ $("exportBtn").addEventListener("click", async () => {
 
 /* ---------- boot ---------- */
 const saved = store.get();
-$("instructions").value = saved?.instructions ?? EXAMPLES.pi.instructions;
-$("parts").value = saved?.parts ?? EXAMPLES.pi.parts;
+const START = TEMPLATE("pi4_case");
+$("instructions").value = saved?.instructions ?? START.brief;
+$("parts").value = saved?.parts ?? START.parts;
 for (const id of ["instructions", "parts"]) $(id).addEventListener("input", () => store.set({ ...(store.get() || {}), instructions: $("instructions").value, parts: $("parts").value }));
 const themeDark = () => { const t = document.documentElement.dataset.theme; return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; };
 
@@ -623,21 +570,21 @@ const themeDark = () => { const t = document.documentElement.dataset.theme; retu
     $("overlayText").textContent = "Starting OpenCascade…";
     engine = new CAD.Engine(new URL("cad-worker.js", location.href).href, wasm);
     await engine.start();
-    kernelReady = true; chip("chipKernel", "on", "CAD kernel: ready");
-    current = { cadquery: saved?.cadquery || null };
+    kernelReady = true; chip("chipKernel", "on", "Kernel: ready");
+    current = { cadquery: saved?.cadquery || null, docId: saved?.docId || null, createdAt: saved?.createdAt || null };
     if (saved?.code) {
-      try { await build(saved.code, saved.spec); } catch { await build(EXAMPLES.pi.code, EXAMPLES.pi.spec); }
-    } else await build(EXAMPLES.pi.code, EXAMPLES.pi.spec);
+      try { await build(saved.code, saved.spec); } catch { current = { cadquery: null }; await build(START.code, specOf(START)); }
+    } else await build(START.code, specOf(START));
     $("overlay").hidden = true;
   } catch (e) {
-    chip("chipKernel", "err", "CAD kernel: failed");
+    chip("chipKernel", "err", "Kernel: failed");
     $("overlayText").textContent = "The CAD kernel didn't load: " + errText(e) + ". Reload the page to try again.";
     $("bar").parentElement.hidden = true;
   }
 })();
 
 (async function connect() {
-  if (!window.claude?.use) { chip("chipClaude", "err", "Designer: open in Claude"); chip("chipWeb", "off", "Web lookup: off"); return; }
+  if (!window.claude?.use) { chip("chipClaude", "err", "Designer: open in Claude"); chip("chipWeb", "off", "Web lookup: off"); connectLibrary(); return; }
   sampleFn = await window.claude.use("sample");
   if (sampleFn) {
     const lim = await sampleFn.limits().catch(() => null);
@@ -651,5 +598,179 @@ const themeDark = () => { const t = document.documentElement.dataset.theme; retu
     try { webOn = ((await mcp.listTools("host:claude_browser")).servers || []).some((s) => s.server === "host:claude_browser"); }
     catch { webOn = false; }
   }
-  chip("chipWeb", webOn ? "on" : "off", webOn ? "Web lookup: browser" : "Web lookup: off (desktop app only)");
+  chip("chipWeb", webOn ? "on" : "off", webOn ? "Web lookup: on" : "Web lookup: desktop app only");
+  connectLibrary();
 })();
+
+/* ---------- library: your designs (db, private per person) + templates ---------- */
+function rememberDraft() {
+  if (!current?.code) return;
+  store.set({ instructions: $("instructions").value, parts: $("parts").value, spec: current.spec, code: current.code,
+    cadquery: current.cadquery, docId: current.docId || null, createdAt: current.createdAt || null });
+}
+const localDesigns = {
+  key: "tessera-designs",
+  all() { try { return JSON.parse(localStorage.getItem(this.key) || "[]"); } catch { return []; } },
+  write(list) { try { localStorage.setItem(this.key, JSON.stringify(list)); return true; } catch { return false; } },
+  put(d) { const l = this.all().filter((x) => x.id !== d.id); l.unshift(d); return this.write(l); },
+  del(id) { this.write(this.all().filter((x) => x.id !== id)); },
+};
+let mine = [], mineMode = "loading", designsCol = null, libFilter = "All", libQuery = "";
+const fmtDate = (t) => { try { return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); } catch { return ""; } };
+const CUBE_PH = '<svg class="ph" width="44" height="44" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 2 24.4 8v12L14 26 3.6 20V8z M3.6 8 14 14l10.4-6M14 14v12" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+
+async function connectLibrary() {
+  if (connectLibrary.done) return;
+  connectLibrary.done = true;
+  const [db, user] = await Promise.all([window.claude?.use?.("db") ?? null, window.claude?.use?.("user") ?? null]);
+  const uid = user ? await user.id().catch(() => null) : null;
+  const fallback = (why) => { mineMode = "local"; mine = localDesigns.all(); $("mineNote").textContent = why; renderLibrary(); };
+  if (!db || !uid) { fallback("Saved in this browser only. Open Tessera in Claude while signed in to keep designs across devices."); return; }
+  designsCol = db.collection(`data/users/${uid}/designs`);
+  const timer = setTimeout(() => { if (mineMode === "loading") fallback("Couldn't reach your library; saving in this browser for now."); }, 10000);
+  designsCol.orderBy("updatedAt", "desc").onSnapshot((snap) => {
+    clearTimeout(timer);
+    mineMode = "db";
+    mine = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    $("mineNote").textContent = "Private to you · synced";
+    renderLibrary();
+  }, () => { clearTimeout(timer); if (mineMode !== "db") fallback("Couldn't reach your library; saving in this browser for now."); });
+}
+
+const CATEGORIES = [...new Set(LIBRARY.map((t) => t.category))];
+function renderFilters() {
+  const all = ["All", "Yours", ...CATEGORIES];
+  $("libFilters").innerHTML = all.map((c) => `<button type="button" data-cat="${esc(c)}" aria-pressed="${c === libFilter}">${esc(c)}</button>`).join("");
+  $("libFilters").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { libFilter = b.dataset.cat; renderLibrary(); }));
+}
+const hit = (fields) => !libQuery || fields.join(" ").toLowerCase().includes(libQuery);
+
+function renderLibrary() {
+  $("navCount").textContent = mine.length || "";
+  renderFilters();
+  const showMine = libFilter === "All" || libFilter === "Yours";
+  $("mineSection").hidden = !showMine;
+  const ms = mine.filter((d) => hit([d.title, d.brief, d.parts]));
+  if (mineMode === "loading") $("mineCards").innerHTML = `<div class="empty"><span>Loading your designs…</span></div>`;
+  else if (!mine.length) $("mineCards").innerHTML = `<div class="empty"><strong>No saved designs yet</strong><span>Design something in the Studio, then press Save to library. A saved design keeps its brief, research and model.</span></div>`;
+  else if (!ms.length) $("mineCards").innerHTML = `<div class="empty"><span>None of your designs match.</span></div>`;
+  else $("mineCards").innerHTML = ms.map((d) => `<article class="card">
+      <div class="thumb">${d.thumb ? `<img src="${esc(d.thumb)}" alt="">` : CUBE_PH}</div>
+      <div class="card-body"><h3>${esc(d.title || "Untitled design")}</h3>
+        <div class="card-meta"><span>${esc(fmtDate(d.updatedAt))}</span>${d.bodies ? `<span>· ${d.bodies} ${d.bodies === 1 ? "body" : "bodies"}</span>` : ""}</div>
+        <p>${esc(d.brief || "")}</p>
+        <div class="card-actions"><button class="btn small primary" type="button" data-open="${esc(d.id)}">Open</button>
+          <button class="btn small ghost danger" type="button" data-del="${esc(d.id)}">Delete</button></div></div></article>`).join("");
+  $("mineCards").querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => openDesign(b.dataset.open)));
+  $("mineCards").querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteDesign(b)));
+  const ts = LIBRARY.filter((t) => (libFilter === "All" || libFilter === t.category) && hit([t.title, t.brief, t.category, ...t.tags]));
+  $("tplCards").closest("section").hidden = libFilter === "Yours";
+  $("tplNote").textContent = `${LIBRARY.length} tested models · Claude learns from the closest ones`;
+  $("tplCards").innerHTML = ts.map((t) => `<article class="card">
+      <div class="thumb"><img src="thumbs/${esc(t.id)}.png" alt="" loading="lazy"></div>
+      <div class="card-body"><h3>${esc(t.title)}</h3>
+        <div class="card-meta"><span class="pill">${esc(t.category)}</span>${t.components?.length ? `<span>${t.components.length} real part${t.components.length > 1 ? "s" : ""}</span>` : ""}</div>
+        <p>${esc(t.brief)}</p>
+        <div class="card-actions"><button class="btn small primary" type="button" data-tpl="${esc(t.id)}">Open</button>
+          <button class="btn small ghost" type="button" data-brief="${esc(t.id)}">Use brief</button></div></div></article>`).join("")
+    || `<div class="empty"><span>No templates match.</span></div>`;
+  $("tplCards").querySelectorAll("[data-tpl]").forEach((b) => b.addEventListener("click", () => openTemplate(b.dataset.tpl)));
+  $("tplCards").querySelectorAll("[data-brief]").forEach((b) => b.addEventListener("click", () => {
+    const t = TEMPLATE(b.dataset.brief);
+    $("instructions").value = t.brief; $("parts").value = t.parts || "";
+    location.hash = "#studio"; $("instructions").focus(); toast("Brief loaded. Edit it, then press Design it.");
+  }));
+}
+$("libSearch").addEventListener("input", () => { libQuery = $("libSearch").value.trim().toLowerCase(); renderLibrary(); });
+
+async function openTemplate(id) {
+  const t = TEMPLATE(id);
+  if (!kernelReady) { toast("The CAD kernel is still loading."); return; }
+  location.hash = "#studio";
+  $("instructions").value = t.brief; $("parts").value = t.parts || "";
+  current = { cadquery: null }; lastSpec = null; viewer.framed = false;
+  try { await build(t.code, specOf(t)); rememberDraft(); } catch (e) { toast("Template failed to build: " + errText(e)); }
+}
+async function openDesign(id) {
+  const d = mine.find((x) => x.id === id);
+  if (!d) return;
+  if (!kernelReady) { toast("The CAD kernel is still loading."); return; }
+  location.hash = "#studio";
+  $("instructions").value = d.brief || ""; $("parts").value = d.parts || "";
+  current = { cadquery: d.cadquery || null, docId: d.id, createdAt: d.createdAt }; lastSpec = d.spec || null; viewer.framed = false;
+  try { await build(d.code, d.spec || {}); rememberDraft(); } catch (e) { toast("This design no longer builds: " + errText(e)); }
+}
+async function deleteDesign(btn) {
+  if (btn.dataset.armed !== "1") {
+    btn.dataset.armed = "1"; btn.textContent = "Delete for good?";
+    setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Delete"; } }, 3500);
+    return;
+  }
+  const id = btn.dataset.del;
+  btn.disabled = true;
+  try {
+    if (mineMode === "db") await designsCol.doc(id).delete();
+    else { localDesigns.del(id); mine = localDesigns.all(); renderLibrary(); }
+    if (current?.docId === id) { current.docId = null; $("saveLabel").textContent = "Save to library"; }
+    toast("Design deleted");
+  } catch (e) { btn.disabled = false; toast("Couldn't delete: " + errText(e)); }
+}
+
+async function saveDesign() {
+  if (!current?.code) return;
+  $("saveBtn").disabled = true; $("saveLabel").textContent = "Saving…";
+  try {
+    let thumb = null;
+    try { thumb = await viewer.thumb(360); } catch { /* thumbnail is optional */ }
+    const now = Date.now();
+    const doc = JSON.parse(JSON.stringify({
+      title: current.spec?.title || "Untitled design", brief: $("instructions").value, parts: $("parts").value,
+      spec: current.spec || {}, code: current.code, cadquery: current.cadquery || null,
+      bodies: current.report?.length || 0, createdAt: current.createdAt || now, updatedAt: now, thumb,
+    }));
+    if (JSON.stringify(doc).length > 240000) doc.thumb = null;
+    if (mineMode === "db") {
+      const ref = current.docId ? designsCol.doc(current.docId) : designsCol.doc();
+      await ref.set(doc);
+      current.docId = ref.id;
+    } else {
+      const id = current.docId || `d${now}`;
+      if (!localDesigns.put({ id, ...doc })) throw new Error("this browser's storage is full or blocked");
+      current.docId = id; mine = localDesigns.all(); renderLibrary();
+    }
+    current.createdAt = doc.createdAt;
+    rememberDraft();
+    $("saveLabel").textContent = "Saved";
+    toast(`Saved “${doc.title}” to your library`);
+  } catch (e) {
+    $("saveLabel").textContent = current.docId ? "Save changes" : "Save to library";
+    toast(e?.code === "not_granted" ? "Saving was declined for this page." : "Couldn't save: " + errText(e));
+  } finally { $("saveBtn").disabled = false; }
+}
+$("saveBtn").addEventListener("click", saveDesign);
+$("newBtn").addEventListener("click", () => {
+  location.hash = "#studio";
+  $("instructions").value = ""; $("parts").value = ""; lastSpec = null;
+  if (current) current.docId = null;
+  $("saveLabel").textContent = "Save to library";
+  $("briefNote").hidden = false;
+  $("briefNote").textContent = "Write a brief and press Design it. The current model stays on screen until the new one builds.";
+  $("instructions").focus();
+});
+
+/* ---------- views ---------- */
+function route() {
+  const lib = location.hash === "#library";
+  $("viewStudio").hidden = lib; $("viewLibrary").hidden = !lib;
+  $("navStudio").removeAttribute("aria-current"); $("navLibrary").removeAttribute("aria-current");
+  (lib ? $("navLibrary") : $("navStudio")).setAttribute("aria-current", "page");
+  if (lib) renderLibrary();
+}
+addEventListener("hashchange", route);
+route();
+
+/* Hooks for scripted checks and thumbnail generation. */
+window.tessera = {
+  openTemplate,
+  async thumbnail(id) { await openTemplate(id); await new Promise((r) => setTimeout(r, 150)); return viewer.thumb(480, "image/png"); },
+};

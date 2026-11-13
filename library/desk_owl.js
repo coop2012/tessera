@@ -15,5 +15,5 @@ function main(r, p) {
   const base = r.draw([0, 0]).lineTo([22, 0]).lineTo([22, 3]).smoothSplineTo([18, 6]).lineTo([0, 6]).close()
     .sketchOnPlane("XZ").revolve([0, 0, 1]);
   owl = owl.fuse(base);
-  return [{ name: "desk_owl", shape: owl, color: "#c9803e" }];
+  return [{ name: "desk_owl", shape: owl, color: "#c8c8c6" }];
 }

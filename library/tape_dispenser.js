@@ -56,12 +56,12 @@ function main(r, p) {
   const pin = r.makeCylinder(1.5, 28, [rollerC[0], -14, rollerC[2]], [0, 1, 0]);
 
   return [
-    { name: "body", shape: body, color: "#2b2f36" },
-    { name: "hub", shape: hub, color: "#e4572e" },
-    { name: "guide_roller", shape: roller, color: "#e4572e" },
-    { name: "blade_clamp", shape: clamp, color: "#9aa3ad" },
-    { name: "tape_roll", shape: tapeRoll, color: "#d9e8f5", printable: false },
-    { name: "serrated_blade", shape: blade, color: "#c0c6cc", printable: false },
-    { name: "m3x28_pin", shape: pin, color: "#888888", printable: false },
+    { name: "body", shape: body, color: "#202020" },
+    { name: "hub", shape: hub, color: "#9b9b99" },
+    { name: "guide_roller", shape: roller, color: "#9b9b99" },
+    { name: "blade_clamp", shape: clamp, color: "#c4c4c2" },
+    { name: "tape_roll", shape: tapeRoll, color: "#e6e6e4", printable: false },
+    { name: "serrated_blade", shape: blade, color: "#bdbdbb", printable: false },
+    { name: "m3x28_pin", shape: pin, color: "#8a8a8a", printable: false },
   ];
 }

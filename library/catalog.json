@@ -1,0 +1,139 @@
+[
+  {
+    "id": "pi4_case", "title": "Raspberry Pi 4 case", "category": "Enclosures",
+    "brief": "A two-piece case for a Raspberry Pi 4 with a 30 mm fan on the lid. Leave the USB and Ethernet end open, raise the board on its mounting holes, and add vent slots under the CPU.",
+    "parts": "Raspberry Pi 4 Model B\n30x30x10 mm 5V fan\n4x M2.5 x 6 screws",
+    "tags": ["enclosure", "case", "pcb", "raspberry pi", "fan", "standoff", "vent", "lid"],
+    "techniques": ["shell() a rounded box to get walls and an open top", "standoffs = cylinder minus pilot hole, fused per mounting hole", "locating lip = rounded-rectangle ring extruded under the lid", "PCB modelled as a printable:false reference body"],
+    "components": [
+      { "name": "Raspberry Pi 4 Model B", "dims": "PCB 85 × 56 × 1.4 mm; holes Ø2.7 on 58 × 49 mm, 3.5 mm from edge", "source": "https://datasheets.raspberrypi.com/rpi4/raspberry-pi-4-mechanical-drawing.pdf", "basis": "Raspberry Pi mechanical drawing" },
+      { "name": "30 mm fan", "dims": "30 × 30 × 10 mm; screw holes 24 mm apart", "source": "", "basis": "3010 fan standard" }
+    ],
+    "print_notes": ["Base upright, lid upside down; no supports.", "0.2 mm layers, 3 walls, 20% gyroid."],
+    "hardware": ["4 × M2.5 × 6 self-tapping screws", "1 × 30 mm 5 V fan"]
+  },
+  {
+    "id": "arduino_box", "title": "Arduino control box", "category": "Enclosures",
+    "brief": "A desk control box for an Arduino Uno with a 1602 LCD in the lid and a rotary encoder knob. USB and power must stay reachable; add ventilation.",
+    "parts": "Arduino Uno R3\nLCD1602 module\nEC11 rotary encoder",
+    "tags": ["enclosure", "arduino", "lcd", "display", "encoder", "knob", "panel", "ports", "control"],
+    "techniques": ["port openings cut with makeBox at measured connector positions", "display hung from lid standoffs so the glass sits in a window", "panel-mount hole + anti-rotation slot for an encoder", "fillet the outer rim inside try/catch"],
+    "components": [
+      { "name": "Arduino Uno R3", "dims": "68.6 × 53.4 × 1.6 mm; Ø3.2 holes at (14.0,2.5) (15.3,50.7) (66.1,7.6) (66.1,35.5)", "source": "https://docs.arduino.cc/hardware/uno-rev3/", "basis": "Arduino Uno Rev3 board drawing" },
+      { "name": "LCD1602 module", "dims": "PCB 80 × 36 × 1.6; Ø3.0 holes on 75 × 31; glass 71 × 24 × 7", "source": "", "basis": "1602A module drawing" },
+      { "name": "EC11 rotary encoder", "dims": "body 12 × 12 × 6.5; M7 bushing; Ø6 shaft; tab 7.8 mm from axis", "source": "", "basis": "Alps EC11 datasheet" }
+    ],
+    "print_notes": ["Box upright, lid upside down, no supports.", "0.2 mm layers, 3 walls, 15% gyroid."],
+    "hardware": ["4 × M3 × 6 self-tap", "4 × M2.5 × 6 self-tap"]
+  },
+  {
+    "id": "snap_box", "title": "Snap-fit box", "category": "Enclosures",
+    "brief": "A small 60 × 40 × 30 mm box with a lid that clicks on with snap hooks, no screws.",
+    "parts": "",
+    "tags": ["box", "snap", "snap-fit", "clip", "lid", "container", "no screws", "cantilever"],
+    "techniques": ["cantilever snap beam 1.6 mm thick with a barb that drops into a wall window", "gap the locating lip where the beams are so they can flex", "every sliding fit uses p.clearance"],
+    "components": [],
+    "print_notes": ["Box upright; lid upside down so the beams print vertically (strong along the layers).", "PETG or PLA+, 0.2 mm layers."],
+    "hardware": []
+  },
+  {
+    "id": "tape_dispenser", "title": "Desktop tape dispenser", "category": "Mechanisms",
+    "brief": "A weighted desktop tape dispenser for Scotch 3/4 inch tape on a 1 inch core, with a guide roller and a replaceable serrated blade under a clamp plate.",
+    "parts": "Scotch Magic Tape 3/4 in, 1 in core\nSerrated dispenser blade 25 x 8 mm\nM3 x 28 pin",
+    "tags": ["dispenser", "tape", "roll", "spool", "axle", "hub", "roller", "blade", "weighted", "desk"],
+    "techniques": ["drop-in U-slot seats an axle stub so the roll lifts out", "hub drum = core ID minus 0.2 mm, axle stubs ride in the cheeks", "roller on a metal pin, clamp plate screwed over a blade seat", "washer pockets underneath add weight"],
+    "components": [
+      { "name": "Scotch Magic Tape 3/4 in", "dims": "19.05 mm wide, 25.4 mm core, ~53 mm OD", "source": "https://www.3m.com/3M/en_US/p/d/b00003806/", "basis": "3M product data" },
+      { "name": "Serrated dispenser blade", "dims": "25 × 8 × 0.5 mm, 2 × Ø2.5 holes 16 mm apart", "source": "", "basis": "Typical replacement blade" }
+    ],
+    "print_notes": ["Body flat on its base; hub and roller standing on end.", "Drop M20 washers into the base pockets for weight."],
+    "hardware": ["M3 × 28 pin or screw", "2 × M2.5 × 6 screws", "M20 washers", "4 rubber feet 10 × 2 mm"]
+  },
+  {
+    "id": "print_in_place_hinge", "title": "Print-in-place hinge", "category": "Mechanisms",
+    "brief": "A 40 mm print-in-place hinge with two screw-mount leaves that prints already assembled.",
+    "parts": "",
+    "tags": ["hinge", "print in place", "knuckle", "pin", "pivot", "rotate", "folding", "joint"],
+    "techniques": ["alternate knuckles between two leaves along one axis", "the pin belongs to one leaf; the other leaf's knuckles get holes of pin + clearance", "cut clearance cylinders out of each leaf where the other leaf's knuckles turn", "use clearance ≥ 0.35 mm for print-in-place"],
+    "components": [],
+    "print_notes": ["Print flat as modelled; no supports.", "First layer must be clean so the knuckles don't fuse; flex it gently to free it."],
+    "hardware": ["4 × M3 screws"]
+  },
+  {
+    "id": "gear_pair", "title": "Spur gear pair", "category": "Mechanisms",
+    "brief": "A 2:1 spur gear pair, module 2, on a base plate with pegs so it can be turned by hand.",
+    "parts": "",
+    "tags": ["gear", "gears", "spur", "involute", "teeth", "ratio", "transmission", "module", "rotate"],
+    "techniques": ["involute tooth profile generated point by point and drawn with lineTo", "centre distance = m(z1+z2)/2 + backlash", "rotate one gear half a pitch so teeth mesh", "bores = shaft + clearance; pegs on a base plate"],
+    "components": [],
+    "print_notes": ["Gears flat; 0.12–0.16 mm layers for clean teeth.", "Base flat; no supports."],
+    "hardware": []
+  },
+  {
+    "id": "cable_organizer", "title": "5-slot cable organizer", "category": "Organizers",
+    "brief": "make a 5 spot cable organizer",
+    "parts": "",
+    "tags": ["cable", "organizer", "cord", "usb", "charger", "slot", "keyhole", "desk", "weighted"],
+    "techniques": ["keyhole slot = seat cylinder + narrower throat box", "V lead-in drawn as a polygon on XZ and extruded through", "label grooves and washer pockets as simple cuts"],
+    "components": [
+      { "name": "Phone charging cable", "dims": "jacket Ø3.0–4.5 mm; connector head ≥ 8 × 6 mm", "source": "", "basis": "Measured retail cables", "inferred": true },
+      { "name": "Laptop USB-C cable", "dims": "jacket Ø4.5–5.0 mm", "source": "", "basis": "100 W USB-C cables", "inferred": true }
+    ],
+    "print_notes": ["Upright on its base, no supports.", "Pause at ~4 mm to drop in steel washers."],
+    "hardware": ["4 rubber feet 10 × 2 mm", "2 × M20 washers"]
+  },
+  {
+    "id": "phone_stand", "title": "Phone stand", "category": "Organizers",
+    "brief": "A desk phone stand that holds a phone in a case at a comfortable reading angle, with a slot for the charging cable.",
+    "parts": "",
+    "tags": ["phone", "stand", "holder", "dock", "angle", "tablet", "cable slot", "desk"],
+    "techniques": ["rotate() boxes to build angled rests and struts", "cut a big box below z=0 to flatten the bottom after rotating", "reference phone placed resting on the surfaces to prove fit"],
+    "components": [
+      { "name": "Phone in a case", "dims": "up to 9–11 mm thick, 72–80 mm wide", "source": "", "basis": "Common phone sizes with case", "inferred": true }
+    ],
+    "print_notes": ["Print on its side for strength along the rest, or upright with no supports."],
+    "hardware": []
+  },
+  {
+    "id": "headphone_hook", "title": "Under-desk headphone hook", "category": "Mounts",
+    "brief": "A headphone hook that screws to the underside of a desk.",
+    "parts": "",
+    "tags": ["hook", "headphone", "hanger", "mount", "under desk", "bracket", "screw", "countersink", "wall"],
+    "techniques": ["draw a J-profile on XZ and extrude it across the width", "countersink = through hole + loft from the head diameter to the shank", "fillet edges along the extrude direction with inDirection(\"Y\")"],
+    "components": [
+      { "name": "Over-ear headband", "dims": "30–45 mm wide", "source": "", "basis": "Common headphones", "inferred": true }
+    ],
+    "print_notes": ["Print on its side (profile flat) so the layers run around the J."],
+    "hardware": ["2 × M4 / #8 countersunk wood screws"]
+  },
+  {
+    "id": "spiral_vase", "title": "Bud vase", "category": "Decor",
+    "brief": "A 120 mm bud vase with a smooth curved profile and decorative rings.",
+    "parts": "",
+    "tags": ["vase", "pot", "planter", "cup", "lathe", "revolve", "decor", "spline", "bowl"],
+    "techniques": ["profile with smoothSplineTo, revolved around Z", "shell() to hollow, with a revolved inner profile as fallback", "rings cut as thin annular cylinders"],
+    "components": [],
+    "print_notes": ["Upright; works in vase mode if you drop the rings.", "Line with a glass tube for water."],
+    "hardware": []
+  },
+  {
+    "id": "desk_owl", "title": "Desk owl", "category": "Figurines",
+    "brief": "A small desk owl figurine about 65 mm tall: round body, big eyes, ear tufts, folded wings, sitting on a turned round base. Prints in one piece without supports.",
+    "parts": "",
+    "tags": ["figurine", "animal", "bird", "owl", "creature", "sculpt", "organic", "toy", "statue"],
+    "techniques": ["overlapping ellipsoids fuse into smooth organic forms", "rotate small ellipsoids for tufts and wings", "lofted beak tapering to a point", "flat cut bottom + revolved base"],
+    "components": [],
+    "print_notes": ["Upright on the base, no supports.", "0.12–0.16 mm layers for the curves."],
+    "hardware": []
+  },
+  {
+    "id": "robot_figure", "title": "Desk robot", "category": "Figurines",
+    "brief": "A friendly little robot figurine for a desk, about 70 mm tall, printable in one piece.",
+    "parts": "",
+    "tags": ["figurine", "robot", "character", "toy", "mascot", "cute", "statue"],
+    "techniques": ["rounded boxes = makeBaseBox + fillet(all edges) in try/catch", "spheres at joints hide where cylinders meet", "eye sockets cut, pupils fused back in", "flat feet for bed adhesion"],
+    "components": [],
+    "print_notes": ["Upright; arms stay under 45°.", "0.12 mm layers for the details."],
+    "hardware": []
+  }
+]
